@@ -27,8 +27,8 @@
   let robotWidth = 16;
   let robotHeight = 16;
   let settings: FPASettings = {
-    xVelocity: 60,
-    yVelocity: 60,
+    xVelocity: 41.743954,
+    yVelocity: 55.14645,
     aVelocity: Math.PI,
     kFriction: 0.05,
     rWidth: robotWidth,
@@ -61,8 +61,8 @@
   shapeGroup.id = "shape-group";
 
   let startPoint: Point = {
-    x: 56,
-    y: 8,
+    x: 59,
+    y: 9,
     heading: "linear",
     startDeg: 90,
     endDeg: 180
