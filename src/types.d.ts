@@ -35,6 +35,7 @@ interface Line {
   controlPoints: ControlPoint[];
   color: string;
   name?: string;
+  namepath?: string;
 }
 
 interface FPALine {

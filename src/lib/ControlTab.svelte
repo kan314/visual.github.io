@@ -89,6 +89,7 @@
           class="pl-1.5 rounded-md bg-neutral-100 border-[0.5px] focus:outline-none w-28 dark:bg-neutral-950 dark:border-neutral-700"
           step="0.1"
         />
+        
       </div>
     </div>
 
@@ -98,6 +99,11 @@
           <div
             class="font-semibold flex flex-row justify-start items-center gap-2"
           >
+            <input
+              bind:value={line.namepath}
+              placeholder="Position {idx + 1}"
+              class="pl-1.5 rounded-md bg-neutral-100 dark:bg-neutral-950 dark:border-neutral-700 border-[0.5px] focus:outline-none text-sm font-semibold"
+            />
             <input
               bind:value={line.name}
               placeholder="Path {idx + 1}"

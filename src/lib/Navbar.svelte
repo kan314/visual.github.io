@@ -70,104 +70,110 @@
     };
 
     let pathsClass = `
-    public static class Paths {
+      
+
+      
+      
+      private final Pose startPose = new Pose(${startPoint.x.toFixed(3)}, ${startPoint.y.toFixed(3)}, Math.toRadians(${startPoint.startDeg}));
+      ${lines.map((line, idx) => {
+          const variableName = line.namepath ? line.namepath.replace(/[^a-zA-Z0-9]/g, '') : `line${idx + 1}`;
+          return `private final Pose ${variableName} = new Pose(${line.endPoint.x.toFixed(3)}, ${line.endPoint.y.toFixed(3)}, Math.toRadians(${line.endPoint.endDeg}));`
+        }).join("\n")}
+      //Bazier zone
+      ${lines.map((line, idx) => {
+          const variableName = line.namepath ? line.namepath.replace(/[^a-zA-Z0-9]/g, '') : `line${idx + 1}`;
+          return ` 
+            ${
+              line.controlPoints.length > 0 ? `${line.controlPoints.map((point) =>
+              `private final Pose ${variableName}_BE = new Pose(${point.x.toFixed(3)}, ${point.y.toFixed(3)}, Math.toRadians(${line.endPoint.endDeg}));`     
+              ).join("\n")}` : ""}`
+            }).join("\n")}
+      
+    `;
+
+
+
+        let pathsClass1 = `
+    
       ${lines.map((line, idx) => {
           const variableName = line.name ? line.name.replace(/[^a-zA-Z0-9]/g, '') : `line${idx + 1}`;
-          return `public PathChain ${variableName};`
-                              }
-                      ).join("\n")
+          return `private PathChain ${variableName};`}).join("\n")
       }
-      public Paths(Follower follower) {
+      public void buildPaths() {
         ${lines.map((line, idx) => {
           const variableName = line.name ? line.name.replace(/[^a-zA-Z0-9]/g, '') : `line${idx + 1}`;
           return `${variableName} = follower.pathBuilder().addPath(
           ${line.controlPoints.length === 0 ? `new BezierLine` : `new BezierCurve`}(
             ${
                                       idx === 0
-                                              ? `new Pose(${startPoint.x.toFixed(3)}, ${startPoint.y.toFixed(3)}),`
-                                              : `new Pose(${lines[idx - 1].endPoint.x.toFixed(3)}, ${lines[idx - 1].endPoint.y.toFixed(3)}),`
+                                              ? `startPose,`
+                                              : `${lines[idx - 1].namepath},`
                               }
             ${
                                       line.controlPoints.length > 0
                                               ? `${line.controlPoints
                                                       .map(
                                                               (point) =>
-                                                                      `new Pose(${point.x.toFixed(3)}, ${point.y.toFixed(3)})`
+                                                                      `${lines[idx].namepath}_BE`
                                                       )
                                                       .join(",\n")},`
                                               : ""
                               }
-            new Pose(${line.endPoint.x.toFixed(3)}, ${line.endPoint.y.toFixed(3)})
+            ${lines[idx].namepath}
           )
-        ).${headingTypeToFunctionName[line.endPoint.heading]}(${line.endPoint.heading === "constant" ? `Math.toRadians(${line.endPoint.degrees})` : line.endPoint.heading === "linear" ? `Math.toRadians(${line.endPoint.startDeg}), Math.toRadians(${line.endPoint.endDeg})` : ""})
+        ).setLinearHeadingInterpolation(${idx === 0 ? `startPose` : `${lines[idx - 1].namepath}`}.getHeading(), ${lines[idx].namepath}.getHeading())
         ${line.endPoint.reverse ? ".setReversed(true)" : ""}
         .build();`
                               }
                       )
                       .join("\n\n")};
       }
-    }
+    
     `;
+      
+      
+      
+    
 
     let file = '';
     if (!exportFullCode) {
       file = pathsClass;
     } else {
       file = `
-      package org.firstinspires.ftc.teamcode;
-      import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-      import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-      import com.bylazar.configurables.annotations.Configurable;
-      import com.bylazar.telemetry.TelemetryManager;
-      import com.bylazar.telemetry.PanelsTelemetry;
-      import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
-      import com.pedropathing.geometry.BezierCurve;
-      import com.pedropathing.geometry.BezierLine;
-      import com.pedropathing.follower.Follower;
-      import com.pedropathing.paths.PathChain;
-      import com.pedropathing.geometry.Pose;
-      @Autonomous(name = "Pedro Pathing Autonomous", group = "Autonomous")
-      @Configurable // Panels
-      public class PedroAutonomous extends OpMode {
-        private TelemetryManager panelsTelemetry; // Panels Telemetry instance
-        public Follower follower; // Pedro Pathing follower instance
-        private int pathState; // Current autonomous path state (state machine)
-        private Paths paths; // Paths defined in the Paths class
-        @Override
-        public void init() {
-          panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
+      package org.firstinspires.ftc.teamcode.opmode.auto; // make sure this aligns with class location
 
-          follower = Constants.createFollower(hardwareMap);
-          follower.setStartingPose(new Pose(72, 8, Math.toRadians(90)));
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.Path;
+import com.pedropathing.paths.PathChain;
+import com.pedropathing.util.Timer;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
 
-          paths = new Paths(follower); // Build paths
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-          panelsTelemetry.debug("Status", "Initialized");
-          panelsTelemetry.update(telemetry);
-        }
-        @Override
-        public void loop() {
-          follower.update(); // Update Pedro Pathing
-          pathState = autonomousPathUpdate(); // Update autonomous state machine
+@Autonomous(name = "ALLNEW101 Vs by pedro pathing", group = "Autonomous")
+public class Autonomous_BlueFAR extends OpMode {
 
-          // Log values to Panels and Driver Station
-          panelsTelemetry.debug("Path State", pathState);
-          panelsTelemetry.debug("X", follower.getPose().getX());
-          panelsTelemetry.debug("Y", follower.getPose().getY());
-          panelsTelemetry.debug("Heading", follower.getPose().getHeading());
-          panelsTelemetry.update(telemetry);
-        }
+    private DcMotor rightRear;
+    private DcMotor rightFront;
+    private DcMotor leftRear;
+    private DcMotor leftFront;
+    private Servo angle_1;
 
-        ${pathsClass}
+    private Follower follower;
+    private Timer pathTimer, actionTimer, opmodeTimer;
+    private int pathState;
 
-        public int autonomousPathUpdate() {
-            // Add your state machine Here
-            // Access paths with paths.pathName
-            // Refer to the Pedro Pathing Docs (Auto Example) for an example state machine
-            return pathState;
-        }
-      }
-      `
+
+    ${pathsClass} 
+
+    ${pathsClass1}
+
+    }`
     }
 
     console.log(file);
@@ -181,7 +187,7 @@
         exportedCode = res;
       })
       .catch((e) => {
-        console.error(e);
+        //console.error(e);
       });
 
     dialogOpen = true;
@@ -199,19 +205,21 @@
 
 <svelte:head>
   {@html codeStyle}
+  <title>ALLNEW101 Vs by pedro pathing</title>
+ 
 </svelte:head>
 
 <div
-  class="absolute top-0 left-0 w-full bg-neutral-50 dark:bg-neutral-900 shadow-md flex flex-row justify-between items-center px-6 py-4 border-b-[0.75px] border-[#b300e6]"
+  class="absolute top-0 left-0 w-full bg-neutral-50 dark:bg-neutral-900 shadow-md flex flex-row justify-between items-center px-6 py-4 border-b-[0.75px] border-[#98F5F9]"
 >
   <div class="font-semibold flex flex-row justify-start items-start">
-    <div>Pedro Pathing Visualizer</div>
+    <div>Sigma Visualizer</div>
     <div class="ml-2">
     <a
       target="_blank"
       rel="norefferer"
       title="GitHub Repo"
-      href="https://github.com/Pedro-Pathing/Visualizer"
+      href="https://github.com/AllNew101/Decode"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -370,45 +378,8 @@
       <button title="Open Settings" on:click={openSettings}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </button>
-      <button
-        title="Toggle Dark/Light Mode"
-        on:click={() => {
-          darkMode.toggle();
-        }}
-      >
-        {#if $darkMode === "light"}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2"
-            stroke="currentColor"
-            class="size-6"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
-            />
-          </svg>
-        {:else}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2"
-            stroke="currentColor"
-            class="size-6"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
-            />
-          </svg>
-        {/if}
-      </button>
-      <input
+      
+            <input
         id="robot-input"
         type="file"
         accept="image/png"
